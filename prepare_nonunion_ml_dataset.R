@@ -13,8 +13,14 @@ library(readxl)
 library(dplyr)
 library(tidyr)
 library(fastDummies)
+library(janitor)
+library(stringr)
 
 cat("Libraries loaded successfully.\n\n")
+
+pad_to_8_digits <- function(ids) {
+  sprintf("%08s", str_pad(trimws(as.character(ids)), width = 8, side = "left", pad = "0"))
+}
 
 # ------------------------------------------------------------------------------
 # 2. Load Data
@@ -23,13 +29,15 @@ cat("Loading data files...\n")
 
 # Step 2a: Load headers from the "Hidden" sheet (first row only)
 cat("  - Loading headers from 'Hidden' sheet...\n")
-header_data <- read_excel("2023/Tib Nonunion Combined.xlsx", sheet = "Hidden", n_max = 1)
+header_data <- read_excel("2023/Tib Nonunion Combined.xlsx", sheet = "Analyze", skip = 234)
 header_names <- colnames(header_data)
 cat("    Found", length(header_names), "column headers\n")
 
 # Step 2b: Load data from the "Analyze" sheet (NO headers in this sheet)
 cat("  - Loading data from 'Analyze' sheet...\n")
 data_main <- read_excel("2023/Tib Nonunion Combined.xlsx", sheet = "Analyze", col_names = FALSE)
+data_main <- data_main %>% filter(row_number() <= n()-1)
+
 cat("    Loaded", nrow(data_main), "rows,", ncol(data_main), "columns\n")
 
 # Step 2c: Assign headers to the data
@@ -37,55 +45,65 @@ cat("  - Assigning headers to data...\n")
 colnames(data_main) <- header_names
 cat("    Headers assigned successfully\n")
 
-# Step 2d: Load demographics/comorbidity data (first sheet)
-cat("  - Loading demographics data...\n")
-data_demo <- read_excel("2024/EDW481-DEMO_language update-20240131.xlsx", sheet = 1)
-cat("    Loaded", nrow(data_demo), "rows,", ncol(data_demo), "columns\n\n")
 
 cat("Data loading complete!\n")
 cat("  - Main data:", nrow(data_main), "rows,", ncol(data_main), "columns\n")
-cat("  - Demographics data:", nrow(data_demo), "rows,", ncol(data_demo), "columns\n\n")
 
 # ------------------------------------------------------------------------------
 # 3. Select and Rename Key Columns
 # ------------------------------------------------------------------------------
 cat("Selecting and renaming key columns...\n")
 
-# Select and rename columns from main data
-data_main_selected <- data_main %>%
+data_main_cleaned <- data_main %>%
+  clean_names()
+
+colnames(data_main_cleaned)
+
+# Select and rename columns from main data using the NEW clean names
+data_main_selected <- data_main_cleaned %>%
+  mutate(pat_id = pad_to_8_digits(pat_id))%>%
   select(
-    PAT_ID,
-    Nonunion_Label = `Non-union? 0=union, 1=non-union`,
-    Age,
-    BMI,
-    Smoking_Status = `SMOKING_TOBACCO_USE 0=never, 1=prior, 2= current`,
-    GA_Open_Fracture = `GA Open Frx Classification`,
-    AO_Classification = `Frx Classi`,
-    ISS,
-    PROMIS_PF_1_3mo = `Mean 1-3 PF`,
-    PROMIS_PI_1_3mo = `Mean 1-3 PI`,
-    PROMIS_PF_3_6mo = `Mean 3-6 PF`,
-    PROMIS_PI_3_6mo = `Mean 3-6 PI`,
-    RUST_Score_1to3 = `RUST Score 1to3`,
-    RUST_Score_3to6 = `RUST Score 3to6`
+    pat_id,
+    Nonunion_Label = non_union_0_union_1_non_union,
+    Age = age,
+    BMI = bmi,
+    pat_gender,
+    cci_score, 
+    # This is the corrected name from your console output:
+    Smoking_Status = smoking_tobacco_use_0_no_2_yes, 
+    GA_Open_Fracture = ga_open_frx_classification,
+    AO_Classification = frx_classi,
+    Tibia_Shaft_Classification = tib_shaft_class,
+    ISS = iss,
+    # These are the corrected mean PROMIS scores from your console output:
+    PROMIS_PF_0_1mo = promis_pf_39,
+    PROMIS_PI_0_1mo = pain_interference_40,
+    PROMIS_Anxiety_0_1mo = anxiety_41, 
+    PROMIS_PF_1_3mo = promis_pf_46,
+    PROMIS_PI_1_3mo = pain_interference_47,
+    PROMIS_Anxiety_1_3mo = anxiety_48, 
+    PROMIS_PF_3_6mo = promis_pf_61,
+    PROMIS_PI_3_6mo = pain_interference_62,
+    PROMIS_Anxiety_3_6mo = anxiety_63,
+    # These are the corrected RUST scores from your console output:
+    RUST_Score_0to1 = rust_score_36,
+    RUST_Score_1to3 = rust_score_43, 
+    RUST_Score_3to6 = rust_score_58, 
+    # follow up times
+    fu_0_1 = f_u_time, 
+    fu_1_3 = f_u_time_45, 
+    fu_3_6 = f_u_time_60, 
   )
 
-# Select columns from demographics data
-data_demo_selected <- data_demo %>%
-  select(PAT_ID, CCI_SCORE)
-
 cat("  - Main data columns selected:", ncol(data_main_selected), "\n")
-cat("  - Demographics columns selected:", ncol(data_demo_selected), "\n\n")
 
 # ------------------------------------------------------------------------------
 # 4. Merge Data
 # ------------------------------------------------------------------------------
 cat("Merging datasets...\n")
 
-data_merged <- data_main_selected %>%
-  left_join(data_demo_selected, by = "PAT_ID")
-
-cat("  - Merged dataset:", nrow(data_merged), "rows,", ncol(data_merged), "columns\n\n")
+analysis_data <- data_main_selected 
+colnames(analysis_data)
 
 # ------------------------------------------------------------------------------
 # 5. Aggressive Data Cleaning
@@ -93,27 +111,29 @@ cat("  - Merged dataset:", nrow(data_merged), "rows,", ncol(data_merged), "colum
 cat("Performing aggressive data cleaning...\n")
 
 # Define numeric columns (all except PAT_ID, AO_Classification, GA_Open_Fracture)
-numeric_cols <- c("Nonunion_Label", "Age", "BMI", "Smoking_Status", "ISS",
-                  "PROMIS_PF_1_3mo", "PROMIS_PI_1_3mo",
-                  "PROMIS_PF_3_6mo", "PROMIS_PI_3_6mo",
-                  "RUST_Score_1to3", "RUST_Score_3to6", "CCI_SCORE")
+numeric_cols <- c("Nonunion_Label", "Age", "BMI", "cci_score", "Smoking_Status", "ISS",
+                  "PROMIS_PF_0_1mo", "PROMIS_PI_0_1mo", "PROMIS_Anxiety_0_1mo", 
+                  "PROMIS_PF_1_3mo", "PROMIS_PI_1_3mo", "PROMIS_Anxiety_1_3mo",
+                  "PROMIS_PF_3_6mo", "PROMIS_PI_3_6mo", "PROMIS_Anxiety_3_6mo",
+                  "RUST_Score_0to1", "RUST_Score_1to3", "RUST_Score_3to6", 
+                  "fu_0_1", "fu_1_3", "fu_3_6")
 
 # Convert to numeric and replace nonsensical values with NA
 for (col in numeric_cols) {
   # Convert to numeric (this handles text errors like "#NUM!")
-  data_merged[[col]] <- suppressWarnings(as.numeric(data_merged[[col]]))
+  analysis_data[[col]] <- suppressWarnings(as.numeric(analysis_data[[col]]))
 
   # Replace negative values (e.g., -9, -41, -999) with NA
-  data_merged[[col]][data_merged[[col]] < 0] <- NA
+  analysis_data[[col]][analysis_data[[col]] < 0] <- NA
 
   # Replace non-finite values with NA
-  data_merged[[col]][!is.finite(data_merged[[col]])] <- NA
+  analysis_data[[col]][!is.finite(analysis_data[[col]])] <- NA
 }
 
 cat("  - Converted all numeric columns and replaced invalid values with NA\n")
 
 # Handle Smoking_Status: Group prior (1) and current (2) as ever-smokers (1)
-data_merged <- data_merged %>%
+analysis_data <- analysis_data %>%
   mutate(Smoking_Status = case_when(
     Smoking_Status == 0 ~ 0,  # Never smoker
     Smoking_Status == 1 ~ 1,  # Prior smoker -> Ever smoker
@@ -124,7 +144,7 @@ data_merged <- data_merged %>%
 cat("  - Recoded Smoking_Status: 0=never, 1=ever (prior or current)\n")
 
 # Handle GA_Open_Fracture: Create binary IsOpen variable
-data_merged <- data_merged %>%
+analysis_data <- analysis_data %>%
   mutate(
     GA_Open_Fracture = as.character(GA_Open_Fracture),
     IsOpen = case_when(
@@ -138,12 +158,12 @@ cat("  - Created binary IsOpen variable (0=closed, 1=any open fracture)\n")
 
 # Handle AO_Classification: Create dummy variables
 # First, clean and prepare the AO_Classification column
-data_merged <- data_merged %>%
+analysis_data <- analysis_data %>%
   mutate(AO_Classification = as.character(AO_Classification))
 
 # Create dummy variables for AO_Classification
 data_with_dummies <- dummy_cols(
-  data_merged,
+  analysis_data,
   select_columns = "AO_Classification",
   remove_first_dummy = FALSE,
   ignore_na = TRUE
