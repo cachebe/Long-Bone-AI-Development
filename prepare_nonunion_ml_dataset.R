@@ -27,6 +27,7 @@ pad_to_8_digits <- function(ids) {
 # ------------------------------------------------------------------------------
 cat("Loading data files...\n")
 
+<<<<<<< HEAD
 # Step 2a: Load headers from the "Hidden" sheet (first row only)
 cat("  - Loading headers from 'Hidden' sheet...\n")
 header_data <- read_excel("2023/Tib Nonunion Combined.xlsx", sheet = "Analyze", skip = 234)
@@ -39,12 +40,36 @@ data_main <- read_excel("2023/Tib Nonunion Combined.xlsx", sheet = "Analyze", co
 data_main <- data_main %>% filter(row_number() <= n()-1)
 
 cat("    Loaded", nrow(data_main), "rows,", ncol(data_main), "columns\n")
+=======
+# Step 2a: Load data from the "Analyze" sheet (NO headers - they're at the bottom)
+cat("  - Loading data from 'Analyze' sheet...\n")
+data_main_raw <- read_excel("2023/Tib Nonunion Combined.xlsx", sheet = "Analyze", col_names = FALSE)
+cat("    Loaded", nrow(data_main_raw), "rows,", ncol(data_main_raw), "columns (includes header row at bottom)\n")
 
-# Step 2c: Assign headers to the data
+# Step 2b: Extract headers from the last row
+cat("  - Extracting headers from bottom row...\n")
+last_row_index <- nrow(data_main_raw)
+header_names <- as.character(data_main_raw[last_row_index, ])
+cat("    Found", length(header_names), "column headers\n")
+
+# Step 2c: Remove the last row (header row) from the data
+cat("  - Removing header row from data...\n")
+data_main <- data_main_raw[-last_row_index, ]
+cat("    Data now has", nrow(data_main), "rows (removed 1 header row)\n")
+>>>>>>> fccbcb7b1930dc01df56973514d9b631af7020e8
+
+# Step 2d: Assign headers to the data
 cat("  - Assigning headers to data...\n")
 colnames(data_main) <- header_names
 cat("    Headers assigned successfully\n")
 
+<<<<<<< HEAD
+=======
+# Step 2e: Load demographics/comorbidity data (first sheet)
+cat("  - Loading demographics data...\n")
+data_demo <- read_excel("2024/EDW481-DEMO_language update-20240131.xlsx", sheet = 1)
+cat("    Loaded", nrow(data_demo), "rows,", ncol(data_demo), "columns\n\n")
+>>>>>>> fccbcb7b1930dc01df56973514d9b631af7020e8
 
 cat("Data loading complete!\n")
 cat("  - Main data:", nrow(data_main), "rows,", ncol(data_main), "columns\n")
