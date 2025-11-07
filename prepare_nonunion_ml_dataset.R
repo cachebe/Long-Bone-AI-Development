@@ -268,43 +268,6 @@ for (var_info in longitudinal_vars) {
 
 cat("Imputation complete!\n\n")
 
-# # Perform median imputation if there are missing values
-# if (missing_rows > 0) {
-#   cat("\nPerforming median imputation for numeric predictor columns...\n")
-# 
-#   for (col in impute_cols) {
-#     if (col %in% names(data_with_dummies)) {
-#       na_count <- sum(is.na(data_with_dummies[[col]]))
-#       if (na_count > 0) {
-#         median_val <- median(data_with_dummies[[col]], na.rm = TRUE)
-#         data_with_dummies[[col]][is.na(data_with_dummies[[col]])] <- median_val
-#         cat("  -", col, ": imputed", na_count, "values with median =", round(median_val, 2), "\n")
-#       }
-#     }
-#   }
-# 
-#   # Also impute Smoking_Status if needed
-#   if (sum(is.na(data_with_dummies$Smoking_Status)) > 0) {
-#     # Use mode (most common value) for binary variable
-#     mode_smoking <- as.numeric(names(sort(table(data_with_dummies$Smoking_Status), decreasing = TRUE)[1]))
-#     na_count <- sum(is.na(data_with_dummies$Smoking_Status))
-#     data_with_dummies$Smoking_Status[is.na(data_with_dummies$Smoking_Status)] <- mode_smoking
-#     cat("  - Smoking_Status: imputed", na_count, "values with mode =", mode_smoking, "\n")
-#   }
-# 
-#   # Impute IsOpen if needed
-#   if (sum(is.na(data_with_dummies$IsOpen)) > 0) {
-#     mode_isopen <- as.numeric(names(sort(table(data_with_dummies$IsOpen), decreasing = TRUE)[1]))
-#     na_count <- sum(is.na(data_with_dummies$IsOpen))
-#     data_with_dummies$IsOpen[is.na(data_with_dummies$IsOpen)] <- mode_isopen
-#     cat("  - IsOpen: imputed", na_count, "values with mode =", mode_isopen, "\n")
-#   }
-# 
-#   cat("\nImputation complete!\n\n")
-# # } else {
-#   cat("  - No imputation needed, all data complete!\n\n")
-# }
-
 # ------------------------------------------------------------------------------
 # 7. Finalize Datasets for Models
 # ------------------------------------------------------------------------------
